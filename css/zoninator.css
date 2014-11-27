@@ -171,7 +171,7 @@
 		#zone-post-search {
 			width: 99%;
 		}
-		#zone-post-latest {
+		#zone-post-latest, #blog-which{
 			width: 98%;
 		}
 
@@ -220,6 +220,11 @@
 		float: right;
 		text-align: right;
 	}
+/* */
+.s-network {
+    color: red;
+    float: right;
+}
 
 .zone-advanced-search-filters-wrapper {
 	display: none;
