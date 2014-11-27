@@ -8,6 +8,9 @@ var zoninator = {}
 		zoninator.$zonePostsList = $('.zone-posts-list');
 		zoninator.$zonePostsWrap = $('.zone-posts-wrapper');
 		zoninator.$zonePostSearch = $("#zone-post-search");
+		zoninator.$blogList = $("#blog-which");
+		zoninator.currentBlog = zoninator.$blogList.val();
+        
 		zoninator.$zonePostLatest = $("#zone-post-latest");
 		zoninator.$zoneAdvancedCat = $("#zone_advanced_filter_taxonomy");
 		zoninator.$zoneAdvancedDate = $("#zone_advanced_filter_date");
@@ -39,6 +42,13 @@ var zoninator = {}
 			});
 		}
 		
+		//?? bind Blog change event
+		zoninator.$blogList.bind('change', function(){
+			$("#blogpost-" + zoninator.currentBlog ).html( $("#zone-post-latest").html() ) ;
+			$("#zone-post-latest").html( $("#blogpost-" + zoninator.$blogList.val()).html() )
+			zoninator.currentBlog = zoninator.$blogList.val();
+		})
+        
 		// Bind loading events
 		zoninator.$zonePostsWrap
 			.bind('loading.start', function() {
@@ -67,7 +77,7 @@ var zoninator = {}
 			var $this = $(this),
 				post_id = $this.val();
 			if ( post_id ) {
-				zoninator.addPost( post_id );
+				zoninator.addPost( post_id, zoninator.currentBlog );
 				$this.find( '[value="' + post_id + '"]' ).remove();
 			}
 		});
@@ -87,7 +97,7 @@ var zoninator = {}
 					minLength: 3
 					// Remote source with caching
 					, source: function( request, response ) {
-						var term = request.term;
+						var term = "##"+ zoninator.$blogList + request.term;
 
 						request.cat = zoninator.getAdvancedCat();
 						request.date = zoninator.getAdvancedDate();
@@ -101,12 +111,13 @@ var zoninator = {}
 						// Append more request vars
 						request.action = zoninator.getAjaxAction('search_posts');
 						request.exclude = zoninator.getZonePostIds();
+						request.blog = zoninator.$blogList.val();
 
 						// Allow developers to hook onto the request
 						zoninator.$zonePostSearch.trigger('search.request', request);
 
 						zoninator.autocompleteAjax = $.getJSON( ajaxurl, request, function( data, status, xhr ) {
-							zoninator.autocompleteCache[ term ] = data;
+							zoninator.autocompleteCache[ "##"+ zoninator.$blogList.val() ] = data;
 							if ( xhr === zoninator.autocompleteAjax ) {
 								response( data );
 							}
@@ -114,7 +125,7 @@ var zoninator = {}
 						});
 					}
 					, select: function( e, ui ) {
-						zoninator.addPost(ui.item.post_id);
+						zoninator.addPost(ui.item.post_id, zoninator.currentBlog );
 					}
 					, search: function( e, ui ) {
 						zoninator.$zonePostSearch.trigger('loading.start');
@@ -174,13 +185,14 @@ var zoninator = {}
 
 	}
 
-	zoninator.addPost = function(postId) {
+	zoninator.addPost = function(postId, blogId) {
 		
 		zoninator.$zonePostSearch.trigger('loading.start');
 		
 		zoninator.ajax('add_post', {
 			zone_id: zoninator.getZoneId()
 			, post_id: postId
+			, blog_id: blogId
 		}, zoninator.addPostSuccessCallback);
 		
 	}
@@ -212,23 +224,25 @@ var zoninator = {}
 		$elem.find('.delete').bind('click', function(e) {
 			e.preventDefault();
 			var postId = zoninator.getPostIdFromElem(this);
-			zoninator.removePost(postId);
+			zoninator.removePost(postId.pid, postId.bid);
 		});
 	}
 
-	zoninator.removePost = function(postId) {
-		zoninator.getPost(postId).trigger('loading.start');
+	zoninator.removePost = function(postId, blogId) {
+		zoninator.getPost(postId, blogId).trigger('loading.start');
 		
 		zoninator.ajax('remove_post', {
 			zone_id: zoninator.getZoneId()
 			, post_id: postId
+			, blog_id: blogId
 		}, zoninator.removePostSuccessCallback);	
 	}
 	
 	zoninator.removePostSuccessCallback = function(returnData, originalData) {
 		var postId = originalData.post_id;
+		var blogId = originalData.blog_id;
 		
-		zoninator.getPost(postId).fadeOut('slow', function() {
+		zoninator.getPost(postId, blogId).fadeOut('slow', function() {
 			$(this).remove();
 			if ( zoninator.getZonePostIds().length )
 				zoninator.updatePostOrder(true);
@@ -380,12 +394,15 @@ var zoninator = {}
 		return zoninator.$zonePostsList.children();
 	}
 	
-	zoninator.getPost = function(postId) {
-		return $('#zone-post-' + postId);
+	zoninator.getPost = function(postId, blogId) {
+		return $('#zone-post-' + postId +"-" +  blogId);
 	}
 	
 	zoninator.getPostIdFromElem = function(elem) {
-		return $(elem).closest('.zone-post').attr('data-post-id');
+		return {
+			'pid': $(elem).closest('.zone-post').attr('data-post-id')
+			, 'bid': $(elem).closest('.zone-post').attr('data-post-blog-id')
+	        }
 	}
 	
 	zoninator.getZonePostIds = function() {
